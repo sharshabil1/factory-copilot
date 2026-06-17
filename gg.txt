@@ -75,23 +75,7 @@ CREATE TABLE odoo_inventory (
     last_updated      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- =========================================================
--- MOCK ODOO: FACTORY OPERATIONS
--- =========================================================
-CREATE TABLE odoo_factory_operations (
-    log_id          VARCHAR(50) PRIMARY KEY,
-    line_id         VARCHAR(50) NOT NULL,
-    log_date        DATE NOT NULL,
-    target_output   INTEGER NOT NULL,
-    actual_output   INTEGER NOT NULL,
-    defect_qty      INTEGER DEFAULT 0,
-    downtime_minutes INTEGER DEFAULT 0,
-    fault_category  VARCHAR(100),
-    root_cause_desc TEXT,
-    repair_status   VARCHAR(50)
-                    CHECK (repair_status IN ('open','in_progress','resolved','closed')),
-    repair_cost     NUMERIC(10, 2) DEFAULT 0.0
-);
+
 
 -- =========================================================
 -- MOCK ODOO: DEPARTMENT METRICS
