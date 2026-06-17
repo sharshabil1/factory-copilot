@@ -52,10 +52,26 @@ const messages = {
       clear: 'Clear Chat',
       preview: 'Previewing Document'
     },
+    logs: {
+      title: 'AI & Automation Logs',
+      refresh: 'Refresh Logs',
+      search: 'Search prompts...',
+      thTime: 'Timestamp',
+      thUser: 'User / Session',
+      thPrompt: 'User Prompt',
+      thTool: 'Tool Used',
+      thLatency: 'Latency',
+      toolDocs: 'Search Docs',
+      toolOdoo: 'Query Odoo',
+      toolNone: 'Direct Chat',
+      empty: 'No logs found.'
+    },
     nav: {
       chat: 'Chat',
       docs: 'Documents',
       inventory: 'Inventory',
+      workflow: 'Workflow Automation',
+      logs: 'System Logs',
       admin: 'Admin Panel',
       logout: 'Logout'
     }
@@ -80,6 +96,20 @@ const messages = {
       send: 'إرسال',
       understood: '<strong>مفهوم.</strong> أقوم بتكوين الأتمتة وتوجيه التنبيه إلى بريدك الإلكتروني. جاري إنشاء التسلسل المنطقي...',
       complete: 'اكتمل سير العمل! يمكنك سحب العقد أو استخدام عجلة الماوس للتكبير والتصغير في لوحة العمل.'
+    },
+    logs: {
+      title: 'سجلات الذكاء الاصطناعي والأتمتة',
+      refresh: 'تحديث السجلات',
+      search: 'البحث في المطالبات...',
+      thTime: 'الوقت',
+      thUser: 'المستخدم / الجلسة',
+      thPrompt: 'المطالبة',
+      thTool: 'الأداة المستخدمة',
+      thLatency: 'الاستجابة',
+      toolDocs: 'البحث في المستندات',
+      toolOdoo: 'استعلام أودو',
+      toolNone: 'محادثة مباشرة',
+      empty: 'لم يتم العثور على سجلات.'
     },
     inventory: {
       title: 'مخزون المصنع (مزامنة أودو)',
@@ -115,6 +145,8 @@ const messages = {
       chat: 'المحادثة',
       docs: 'المستندات',
       inventory: 'المخزون',
+      workflow: 'أتمتة سير العمل',
+      logs: 'سجلات النظام',
       admin: 'لوحة التحكم',
       logout: 'تسجيل الخروج'
     }

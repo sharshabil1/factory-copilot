@@ -47,6 +47,7 @@
       </template>
 
       <WorkflowView v-else-if="store.activeView === 'workflow'" />
+      <LogsView v-else-if="store.activeView === 'logs'" />
 
     </div>
   </div>
@@ -57,11 +58,12 @@ import { reactive, provide, watchEffect } from 'vue'
 import { useAppStore }       from '@/stores/app.js'
 import { useI18n }           from 'vue-i18n'
 
-// Import only the views that actually exist
+// 🚨 MAKE SURE ALL 5 OF THESE ARE IMPORTED 🚨
 import LoginView             from '@/components/LoginView.vue'
 import ChatPanel             from '@/components/ChatPanel.vue'
 import DocumentPanel         from '@/components/DocumentPanel.vue'
 import WorkflowView          from '@/components/WorkflowView.vue'
+import LogsView              from '@/components/LogsView.vue'
 
 const store = useAppStore()
 const { locale, t } = useI18n()
@@ -75,10 +77,11 @@ function toggleLanguage() {
   locale.value = locale.value === 'en' ? 'ar' : 'en'
 }
 
-// Updated navigation array (Removed Inventory & Admin)
+// Your updated navigation array
 const navItems = [
   { view: 'chat',     icon: '💬', labelKey: 'nav.chat' },
-  { view: 'workflow', icon: '⚡', labelKey: 'nav.workflow' } // The new Workflow button
+  { view: 'workflow', icon: '⚡', labelKey: 'nav.workflow' },
+  { view: 'logs',     icon: '📊', labelKey: 'nav.logs' } 
 ]
 
 // Toast system
