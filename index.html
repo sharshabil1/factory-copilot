@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Copilot - Infinite Zoom Canvas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Factory Copilot Official Brand Colors */
+            --dark-navy: #0F172A;
+            --electric-cyan: #06B6D4;
+            --tech-orange: #F97316;
+            --light-slate: #F8FAFC;
+            --white: #FFFFFF;
+            --border: #E2E8F0;
+            --text-muted: #64748B;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+        body {
+            display: flex; height: 100vh; width: 100vw;
+            background-color: var(--light-slate); color: var(--dark-navy);
+            overflow: hidden;
+        }
+
+        /* --- Sidebar Chat --- */
+        #chat-sidebar {
+            width: 400px; background-color: var(--white);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            box-shadow: 4px 0 20px rgba(15, 23, 42, 0.05); z-index: 20;
+        }
+
+        .header {
+            padding: 24px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;}
+        .header h1 span { color: var(--electric-cyan); }
+        .badge {
+            background: rgba(6, 182, 212, 0.1); color: var(--electric-cyan);
+            padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+        }
+
+        #chat-history {
+            flex-grow: 1; padding: 24px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+
+        .msg { max-width: 85%; padding: 14px 18px; border-radius: 12px; font-size: 0.9rem; line-height: 1.5; animation: fadeIn 0.3s ease; }
+        .msg.user { background-color: var(--dark-navy); color: var(--white); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.ai { background-color: var(--light-slate); color: var(--dark-navy); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .msg.ai strong { color: var(--electric-cyan); }
+
+        .chat-input-container { padding: 20px; border-top: 1px solid var(--border); background: var(--white); }
+        .input-wrapper { display: flex; background: var(--light-slate); border: 1px solid var(--border); border-radius: 8px; transition: 0.2s; overflow: hidden; }
+        .input-wrapper:focus-within { border-color: var(--electric-cyan); box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1); }
+        .input-wrapper input { flex-grow: 1; border: none; padding: 14px 16px; background: transparent; outline: none; font-size: 0.95rem; color: var(--dark-navy); }
+        .input-wrapper button { background: var(--electric-cyan); color: var(--white); border: none; padding: 0 24px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .input-wrapper button:hover { background: #0891b2; }
+        .input-wrapper button:disabled { background: var(--text-muted); cursor: not-allowed; }
+
+        /* --- Canvas Workspace (Viewport) --- */
+        #workspace {
+            flex-grow: 1; position: relative;
+            background-color: var(--light-slate);
+            /* Grid is now scaled dynamically via JS */
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            overflow: hidden; cursor: grab;
+        }
+        #workspace.panning { cursor: grabbing; }
+
+        /* --- Inner Canvas Plane (Pans and Zooms) --- */
+        #canvas-plane {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            transform-origin: 0 0; /* Scaling anchor is always top-left */
+            will-change: transform;
+        }
+
+        #svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible; }
+        .line { fill: none; stroke: var(--dark-navy); stroke-width: 2.5px; opacity: 0.4; transition: stroke 0.3s; vector-effect: non-scaling-stroke;}
+        .line.animated { stroke-dasharray: 8; animation: dash 30s linear infinite; stroke: var(--electric-cyan); opacity: 0.8;}
+
+        /* Zoom Controls Overlay */
+        .zoom-controls {
+            position: absolute; bottom: 20px; right: 20px;
+            background: var(--white); border: 1px solid var(--border);
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+            display: flex; flex-direction: column; overflow: hidden; z-index: 30;
+        }
+        .zoom-controls button {
+            background: transparent; border: none; padding: 10px 14px; cursor: pointer;
+            font-size: 1.1rem; font-weight: 600; color: var(--dark-navy); transition: 0.2s;
+        }
+        .zoom-controls button:hover { background: var(--light-slate); color: var(--electric-cyan); }
+        .zoom-controls button:not(:last-child) { border-bottom: 1px solid var(--border); }
+        .zoom-controls span { font-size: 0.75rem; padding: 6px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; }
+
+        @keyframes dash { to { stroke-dashoffset: -1000; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+
+        /* --- Nodes --- */
+        .node {
+            position: absolute; width: 260px; background: var(--white);
+            border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(15, 23, 42, 0.05);
+            z-index: 10; cursor: grab; user-select: none;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .node:active { cursor: grabbing; box-shadow: 0 8px 25px rgba(15, 23, 42, 0.12); z-index: 100; }
+        
+        .node-header { padding: 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; border-radius: 12px 12px 0 0; }
+        .node.trigger .node-header { border-top: 4px solid var(--electric-cyan); }
+        .node.action .node-header { border-top: 4px solid var(--dark-navy); }
+        .node.alert .node-header { border-top: 4px solid var(--tech-orange); }
+        
+        .node-body { padding: 16px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; word-wrap: break-word; }
+        .node-body strong { color: var(--dark-navy); }
+
+        .port { width: 14px; height: 14px; background: var(--white); border: 2px solid var(--border); border-radius: 50%; position: absolute; top: 50%; transform: translateY(-50%); z-index: 11; transition: 0.2s; }
+        .port.in { left: -7px; }
+        .port.out { right: -7px; }
+        .node.trigger .port.out { border-color: var(--electric-cyan); }
+        .node.action .port.out { border-color: var(--dark-navy); }
+
+    </style>
+</head>
+<body>
+
+    <aside id="chat-sidebar">
+        <div class="header">
+            <h1>⚙️ Factory<span>Copilot</span></h1>
+            <span class="badge">MVP Demo</span>
+        </div>
+        <div id="chat-history">
+            <div class="msg ai">
+                Hello! I am ready to automate your factory workflows. Paste your rule below.
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <div class="input-wrapper">
+                <input type="text" id="userInput" placeholder="Paste your automation rule here..." autocomplete="off">
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </aside>
+
+    <main id="workspace">
+        <div class="zoom-controls">
+            <button onclick="zoomIn()" title="Zoom In">+</button>
+            <span id="zoom-label">100%</span>
+            <button onclick="zoomOut()" title="Zoom Out">-</button>
+            <button onclick="resetZoom()" title="Reset Zoom">⟲</button>
+        </div>
+
+        <div id="canvas-plane">
+            <svg id="svg-layer"></svg>
+            </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const workspace = document.getElementById('workspace');
+        const canvasPlane = document.getElementById('canvas-plane');
+        const svgLayer = document.getElementById('svg-layer');
+        const chatHistory = document.getElementById('chat-history');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const zoomLabel = document.getElementById('zoom-label');
+
+        // Space State Variables
+        let nodesData = [];
+        let connectionsData = [];
+        let activeNode = null;
+        
+        // Panning & Zooming State
+        let isPanning = false;
+        let pan = { x: 0, y: 0 };
+        let startPan = { x: 0, y: 0 };
+        let scale = 1;
+        let dragOffset = { x: 0, y: 0 }; // Offset for dragging nodes
+
+        // The hardcoded MVP Demo Nodes
+        const demoNodes = [
+            { id: 'trigger_node', type: 'trigger', icon: '📡', title: 'Trigger: Inventory DB', content: '<strong>Condition:</strong><br>Bearing 6205 < 5 units', x: 100, y: 150 },
+            { id: 'action_node', type: 'action', icon: '⚙️', title: 'Action: SAP ERP', content: '<strong>Create PR:</strong><br>Qty: 20 units<br>Material: Bearing 6205', x: 500, y: 80 },
+            { id: 'alert_node', type: 'alert', icon: '✉️', title: 'Alert: Email', content: '<strong>Notify:</strong><br>Factorycopilot@gmail.com', x: 500, y: 250 }
+        ];
+        
+        const demoConnections = [ 
+            { from: 'trigger_node', to: 'action_node' }, 
+            { from: 'trigger_node', to: 'alert_node' } 
+        ];
+
+        // --- Viewport & Transformation Logic ---
+
+        function updateCanvasTransform() {
+            // Apply scale and pan to the inner canvas
+            canvasPlane.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
+            
+            // Sync the background grid to scale and move identically
+            workspace.style.backgroundSize = `${24 * scale}px ${24 * scale}px`;
+            workspace.style.backgroundPosition = `${pan.x}px ${pan.y}px`;
+            
+            // Update UI label
+            zoomLabel.innerText = Math.round(scale * 100) + "%";
+        }
+
+        // Zoom via Mouse Wheel
+        workspace.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const wsRect = workspace.getBoundingClientRect();
+            
+            // Mouse position relative to the workspace container
+            const mouseX = e.clientX - wsRect.left;
+            const mouseY = e.clientY - wsRect.top;
+
+            // Calculate exact position on the canvas before zoom
+            const pointX = (mouseX - pan.x) / scale;
+            const pointY = (mouseY - pan.y) / scale;
+
+            // Determine new scale (zoom speed modifier)
+            const delta = e.deltaY * -0.002;
+            let newScale = scale * Math.exp(delta);
+            newScale = Math.min(Math.max(0.2, newScale), 3); // Clamp between 20% and 300%
+
+            // Adjust pan so the mouse stays over the exact same point
+            pan.x = mouseX - pointX * newScale;
+            pan.y = mouseY - pointY * newScale;
+            scale = newScale;
+
+            updateCanvasTransform();
+        });
+
+        // UI Button Zoom Controls
+        window.zoomIn = () => { scale = Math.min(scale * 1.2, 3); centerZoomPan(); }
+        window.zoomOut = () => { scale = Math.max(scale / 1.2, 0.2); centerZoomPan(); }
+        window.resetZoom = () => { scale = 1; pan = { x: 0, y: 0 }; updateCanvasTransform(); }
+
+        function centerZoomPan() {
+            // Simple approach to zoom towards the center of the screen when using buttons
+            const wsRect = workspace.getBoundingClientRect();
+            const centerX = wsRect.width / 2;
+            const centerY = wsRect.height / 2;
+            const pointX = (centerX - pan.x) / scale;
+            const pointY = (centerY - pan.y) / scale;
+            updateCanvasTransform(); // Update scale visual
+        }
+
+        // --- Core UI Functions ---
+        
+        function appendChatMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `msg ${sender}`;
+            div.innerHTML = text;
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function createNodeOnCanvas(node) {
+            const el = document.createElement('div');
+            el.className = `node ${node.type}`;
+            el.id = node.id;
+            el.style.left = node.x + 'px';
+            el.style.top = node.y + 'px';
+            
+            let portsHtml = '';
+            if(node.type !== 'trigger') portsHtml += '<div class="port in"></div>';
+            if(node.type !== 'alert') portsHtml += '<div class="port out"></div>';
+
+            el.innerHTML = `
+                ${portsHtml}
+                <div class="node-header"><span>${node.icon}</span> ${node.title}</div>
+                <div class="node-body">${node.content}</div>
+            `;
+
+            // Node Drag Events
+            el.addEventListener('mousedown', (e) => {
+                if(e.target.classList.contains('port')) return; 
+                activeNode = el;
+                
+                // Mouse position relative to workspace
+                const wsRect = workspace.getBoundingClientRect();
+                const mouseX = e.clientX - wsRect.left;
+                const mouseY = e.clientY - wsRect.top;
+                
+                // Convert mouse position to unscaled coordinates inside the canvas plane
+                const unscaledMouseX = (mouseX - pan.x) / scale;
+                const unscaledMouseY = (mouseY - pan.y) / scale;
+                
+                // Get node's raw X/Y
+                const nodeX = parseFloat(el.style.left || 0);
+                const nodeY = parseFloat(el.style.top || 0);
+                
+                // Calculate the offset between mouse and node origin
+                dragOffset.x = unscaledMouseX - nodeX;
+                dragOffset.y = unscaledMouseY - nodeY;
+                
+                document.querySelectorAll('.node').forEach(n => n.style.zIndex = '10');
+                el.style.zIndex = '100';
+                e.stopPropagation(); // Stop panning event
+            });
+
+            canvasPlane.appendChild(el);
+            nodesData.push(el);
+        }
+
+        function renderConnectionLines() {
+            svgLayer.innerHTML = ''; 
+
+            connectionsData.forEach(conn => {
+                const fromEl = document.getElementById(conn.from);
+                const toEl = document.getElementById(conn.to);
+                if(!fromEl || !toEl) return;
+
+                // Calculate raw positions locally within the unscaled canvas plane
+                const startX = fromEl.offsetLeft + fromEl.offsetWidth; 
+                const startY = fromEl.offsetTop + (fromEl.offsetHeight / 2);
+                const endX = toEl.offsetLeft;
+                const endY = toEl.offsetTop + (toEl.offsetHeight / 2);
+
+                const curveForce = Math.max(Math.abs(endX - startX) * 0.5, 50);
+                const pathData = `M ${startX} ${startY} C ${startX + curveForce} ${startY}, ${endX - curveForce} ${endY}, ${endX} ${endY}`;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('class', 'line animated');
+                svgLayer.appendChild(path);
+            });
+        }
+
+        // --- Interaction Events (Panning & Dragging) ---
+
+        workspace.addEventListener('mousedown', (e) => {
+            // Initiate Pan
+            if(e.target === workspace || e.target === canvasPlane || e.target === svgLayer) {
+                isPanning = true;
+                workspace.classList.add('panning');
+                startPan = { 
+                    x: e.clientX - pan.x, 
+                    y: e.clientY - pan.y 
+                };
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                // Update Pan Coordinates
+                pan.x = e.clientX - startPan.x;
+                pan.y = e.clientY - startPan.y;
+                updateCanvasTransform();
+            } 
+            else if (activeNode) {
+                const wsRect = workspace.getBoundingClientRect();
+                
+                // Calculate raw mouse position against viewport
+                const mouseX = e.clientX - wsRect.left;
+                const mouseY = e.clientY - wsRect.top;
+                
+                // Convert mouse position to unscaled space
+                const unscaledMouseX = (mouseX - pan.x) / scale;
+                const unscaledMouseY = (mouseY - pan.y) / scale;
+                
+                // Set node position accounting for initial drag offset
+                activeNode.style.left = `${unscaledMouseX - dragOffset.x}px`;
+                activeNode.style.top = `${unscaledMouseY - dragOffset.y}px`;
+                
+                renderConnectionLines();
+            }
+        });
+
+        window.addEventListener('mouseup', () => { 
+            activeNode = null; 
+            isPanning = false;
+            workspace.classList.remove('panning');
+        });
+
+        window.addEventListener('resize', renderConnectionLines);
+
+
+        // --- The AI Simulation Engine ---
+
+        function runSimulation() {
+            const rawInputText = userInput.value.trim();
+            if(!rawInputText) return;
+            
+            appendChatMessage(rawInputText, 'user');
+            userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Reset workspace
+            canvasPlane.querySelectorAll('.node').forEach(n => n.remove());
+            svgLayer.innerHTML = '';
+            nodesData = [];
+            connectionsData = [];
+            
+            // Reset Pan and Scale so the animation is perfectly visible
+            resetZoom();
+
+            setTimeout(() => {
+                appendChatMessage("<strong>Understood.</strong> I am configuring the automation and routing the alert to your email. Generating logic sequence...", 'ai');
+                
+                setTimeout(() => { createNodeOnCanvas(demoNodes[0]); }, 900);
+                
+                setTimeout(() => { 
+                    createNodeOnCanvas(demoNodes[1]); 
+                    connectionsData.push(demoConnections[0]);
+                    renderConnectionLines();
+                }, 1900);
+
+                setTimeout(() => { 
+                    createNodeOnCanvas(demoNodes[2]); 
+                    connectionsData.push(demoConnections[1]);
+                    renderConnectionLines();
+                    
+                    appendChatMessage("Workflow complete! You can drag the nodes or use your mouse wheel to zoom in and out of the canvas.", 'ai');
+                    userInput.disabled = false;
+                    sendBtn.disabled = false;
+                    userInput.focus();
+                }, 2900);
+
+            }, 600);
+        }
+
+        sendBtn.addEventListener('click', runSimulation);
+        userInput.addEventListener('keypress', (e) => { 
+            if(e.key === 'Enter') runSimulation(); 
+        });
+
+        // Initialize empty state
+        window.addEventListener('load', () => {
+            updateCanvasTransform();
+            userInput.value = "if bearing 6205 < 5 notify me on my email Factorycopilot@gmail.com and create a PR quintity 20";
+        });
+
+    </script>
+</body>
+</html>
