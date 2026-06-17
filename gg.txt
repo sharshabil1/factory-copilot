@@ -1,2 +1,103 @@
-constract the databases 
-do some graphs and relation 
+-- =========================================================
+-- EXTENSIONS
+-- =========================================================
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- =========================================================
+-- USERS
+-- =========================================================
+CREATE TABLE users (
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role          VARCHAR(50) DEFAULT 'operator'
+                  CHECK (role IN ('admin', 'manager', 'operator')),
+    is_active     BOOLEAN DEFAULT TRUE,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
+-- RAG: DOCUMENTS (file-level metadata)
+-- =========================================================
+CREATE TABLE documents (
+    id            SERIAL PRIMARY KEY,
+    filename      VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    status        VARCHAR(20) DEFAULT 'pending'
+                  CHECK (status IN ('pending','processing','ready','failed')),
+    chunk_count   INTEGER DEFAULT 0,
+    uploaded_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================================================
+-- RAG: CHUNKS (chunk-level vectors)
+-- =========================================================
+CREATE TABLE document_chunks (
+    id          SERIAL PRIMARY KEY,
+    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL,
+    chunk_text  TEXT NOT NULL,
+    embedding   VECTOR(1536)
+);
+
+CREATE INDEX ON document_chunks USING hnsw (embedding vector_cosine_ops);
+
+-- =========================================================
+-- ADMIN: USAGE LOGS
+-- =========================================================
+CREATE TABLE usage_logs (
+    id                   SERIAL PRIMARY KEY,
+    user_id              INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    session_id           VARCHAR(100),
+    user_prompt          TEXT NOT NULL,
+    ai_response          TEXT NOT NULL,
+    tool_used            VARCHAR(50) NOT NULL
+                         CHECK (tool_used IN ('Search_Docs','Query_Odoo','None')),
+    execution_latency_ms INTEGER NOT NULL,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX ON usage_logs (user_id, created_at DESC);
+CREATE INDEX ON usage_logs (session_id);
+
+-- =========================================================
+-- MOCK ODOO: INVENTORY
+-- =========================================================
+CREATE TABLE odoo_inventory (
+    material_id       VARCHAR(50) PRIMARY KEY,
+    description       VARCHAR(255) NOT NULL,
+    category          VARCHAR(100) NOT NULL,
+    stock_qty         INTEGER NOT NULL DEFAULT 0,
+    minimum_stock     INTEGER NOT NULL,
+    unit_price        NUMERIC(10, 2) NOT NULL,
+    pending_order_qty INTEGER DEFAULT 0,
+    last_updated      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+-- =========================================================
+-- MOCK ODOO: DEPARTMENT METRICS
+-- =========================================================
+CREATE TABLE odoo_department_metrics (
+    id                 SERIAL PRIMARY KEY,
+    department_name    VARCHAR(100) NOT NULL,
+    metric_period      VARCHAR(50) NOT NULL,
+    total_revenue      NUMERIC(12, 2) DEFAULT 0.0,
+    operational_costs  NUMERIC(12, 2) DEFAULT 0.0,
+    incidents_reported INTEGER DEFAULT 0,
+    performance_score  DECIMAL(3, 2)
+);
+
+-- =========================================================
+-- SCHEDULED REMINDERS
+-- =========================================================
+CREATE TABLE scheduled_reminders (
+    id                 SERIAL PRIMARY KEY,
+    user_id            INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    reminder_frequency VARCHAR(50) NOT NULL,
+    target_prompt      TEXT NOT NULL,
+    next_execution     TIMESTAMP NOT NULL,
+    is_active          BOOLEAN DEFAULT TRUE
+);
