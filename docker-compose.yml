@@ -1,41 +1,54 @@
-# factory-copilot/docker-compose.yml
+version: "3.9"
+
 services:
+
   db:
-    image: postgres:15-alpine
-    container_name: copilot_postgres
+    image: pgvector/pgvector:pg16
+    container_name: factory_db
+
     environment:
-      POSTGRES_USER: factory_user
-      POSTGRES_PASSWORD: hackathon_password
-      POSTGRES_DB: factory_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: factory_copilot
+
     ports:
       - "5432:5432"
+
     volumes:
-      # Persist Postgres data on the host VM
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+
     restart: unless-stopped
 
   backend:
-    build: ./backend
-    container_name: copilot_backend
-    ports:
-      - "8000:8000"
-    environment:
-      - PYTHONUNBUFFERED=1
-      # Tell FastAPI how to connect to the new db container
-      - DATABASE_URL=postgresql+asyncpg://factory_user:hackathon_password@db:5432/factory_db
+    build:
+      context: ./backend
+
+    container_name: factory_backend
+
+    env_file:
+      - ./backend/.env
+
     depends_on:
       - db
+
+    ports:
+      - "8000:8000"
+
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
-    container_name: copilot_frontend
-    ports:
-      - "8080:80"
+    build:
+      context: ./frontend
+
     depends_on:
       - backend
+
+    container_name: factory_frontend
+
+    ports:
+      - "8080:80"
+
     restart: unless-stopped
 
-# Define the named volume for Postgres
 volumes:
-  pgdata:
+  postgres_data:

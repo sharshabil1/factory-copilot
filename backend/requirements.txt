@@ -1,0 +1,17 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# DB
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.30
+pgvector==0.2.5
+
+# AI / LangChain
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-google-genai>=2.0.0
+google-generativeai==0.7.2
+
+# Utils
+python-dotenv==1.0.1
+pydantic==2.7.4
