@@ -1,7 +1,7 @@
 # factory-copilot/docker-compose.yml
 services:
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: copilot_postgres
     environment:
       POSTGRES_USER: factory_user

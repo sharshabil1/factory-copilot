@@ -1,5 +1,13 @@
 import { createApp } from 'vue'
-import './style.css'
+import { createPinia } from 'pinia'
+import i18n from './i18n.js'
 import App from './App.vue'
 
-createApp(App).mount('#app')
+const app = createApp(App)
+
+// 1. Initialize Plugins FIRST
+app.use(createPinia())
+app.use(i18n)
+
+// 2. Mount the app LAST
+app.mount('#app')
